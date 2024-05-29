@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Para garantir que o cursor não apareça ao rolar a página */
+        }
+        canvas {
+            display: block;
+        }
+        /* Oculta o cursor quando dentro do canvas */
+        canvas:hover {
+           /* cursor: none; */
+        }
+        .mira {
+            height: 3px;
+            width: 3px;
+            background-color: green;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .menu{
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            cursor: pointer;
+        }
+        .killLog{
+            position: fixed;
+            right: 1%;
+            top: 5%;
+            font-size: 30px;
+            color: white;
+            background-color: red;
+            padding: 10px;
+            width: 150px;
+            display: none;
+        }
+        .killLogFrame{
+            position: fixed;
+            right: 0%;
+            top: 5%;
+            width: 200px;
+            height: 400px;
+        }
+                
+    </style>
+    <title>Battle Shoot</title>
+</head>
+<body>
+    <div class="menu" id="menu">Continuar (C)</div>
+    <div class="mira" id="mira"></div>
+    <div class="killLogFrame" id="killLogFrame"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://threejs.org/build/three.module.js",
+                "three/addons/": "https://threejs.org/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="threex.keyboardstate.js"></script>
+
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three/build/three.module.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        
+    
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+  //      const controls = new OrbitControls(camera, renderer.domElement);
+        
+        const materialPhysical = new THREE.MeshPhysicalMaterial({
+        color: 0x00ff00,        // Cor básica
+        roughness: 0,         // Rugosidade da superfície (0 é liso, 1 é completamente rugoso)
+        metalness: 0,         // Metalicidade da superfície (0 é não metálico, 1 é completamente metálico)
+        clearcoat: 0,         // Cobertura clara (0 a 1)
+        clearcoatRoughness: 0,// Rugosidade da cobertura clara (0 a 1)
+        reflectivity: 0,      // Refletividade da superfície (0 a 1)
+        transmission: 0,      // Transmissão de luz (0 a 1, 0 é opaco, 1 é completamente transparente)
+        thickness: 0,         // Espessura do material para transmissão
+        ior: 0,               // Índice de refração (1.0 para ar, valores maiores para materiais como vidro, água, etc.)
+        sheen: 0,             // Intensidade do brilho (0 a 1)
+        sheenColor: 0xff0000    // Cor do brilho
+        });
+
+
+        ///////////////// TEXTURAS /////////////// 
+
+        const textureLoader = new THREE.TextureLoader();
+        const texture = textureLoader.load('textchaomadeira.jpg');
+        // Carrega a textura de equirectangular
+        const textureLoader2 = new THREE.TextureLoader();
+        const texture2 = textureLoader.load('textceu.jpg');
+        // Configura a textura para repetir na direção Y (para o céu)
+        texture2.wrapS = THREE.RepeatWrapping;
+        texture2.repeat.y = 2; // Ajuste conforme necessário para obter o resultado desejado
+        // Cria uma geometria esférica
+        const geometry = new THREE.SphereGeometry(500, 60, 40);
+        // Inverte as normais para o interior da esfera
+        geometry.scale(-1, 1, 1);
+        // Aplica a textura à esfera
+        const material2 = new THREE.MeshBasicMaterial({ map: texture2 });
+        const sphere = new THREE.Mesh(geometry, material2);
+        // Adiciona a esfera à cena
+        scene.add(sphere);
+        // Crie um material com a textura
+        const material = new THREE.MeshBasicMaterial({ map: texture }); // Use MeshBasicMaterial para uma textura sem iluminação
+
+        ///////////////// TEXTURAS /////////////// 
+
+        const plano = new THREE.PlaneGeometry( 1000, 1000, 100, 100 );
+        const corpo = new THREE.BoxGeometry( 2, 2, 2 );
+
+        const chao = new THREE.Mesh( plano, material );
+        const cubo = new THREE.Mesh( corpo, materialPhysical );
+
+        
+        // Luz ambiente
+        const ambientLight = new THREE.AmbientLight(0x404040, 20);
+        scene.add(ambientLight);
+        
+        // Luz direcional
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
+        directionalLight.position.set(10, 10, 10);
+        //scene.add(directionalLight);
+
+
+        //Controles 
+
+        // Raycaster
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let count = 0;
+
+        // Function to handle click
+        function atira(event) {
+            // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+            mouse.x = 0;
+            mouse.y = 0;
+
+            // Update the raycaster with the camera and mouse position
+            raycaster.setFromCamera(mouse, camera);
+
+            // Calculate the object intersecting the picking ray
+            const intersection = raycaster.intersectObject(scene, true)[0]; // Retorna a primeira interseção encontrada
+
+            if (intersection) {
+                const object = intersection.object;
+
+                // Check if the intersected object is a BoxGeometry
+                if (object.geometry instanceof THREE.BoxGeometry) {
+                    scene.remove(object);
+                    count++;
+                    criaKillLog(count);
+                    
+                    const kill_log = document.getElementById('killLog' + count);
+                    const tempo = 2000;
+                    setKillLog(kill_log, tempo);
+                }
+            }
+        }
+        
+        function criaKillLog(count) {
+            // Crie uma nova div
+            const kill_log = document.createElement('div');
+            
+            // Adicione conteúdo ou estilos à nova div, se necessário
+            kill_log.id = 'killLog' + count;
+            kill_log.display = 'block';
+            kill_log.textContent = 'Você abateu o bot ' + count + "!";
+            kill_log.style.backgroundColor = 'lightblue';
+            kill_log.style.padding = '10px';
+            kill_log.style.marginTop = '10px';
+            kill_log.style.pointerEvents = 'none';
+            kill_log.style.userSelect = 'none';
+            // Adicione a nova div ao container existente no DOM
+            const container = document.getElementById('killLogFrame');
+            container.appendChild(kill_log);
+
+        }
+
+        function setKillLog(kill_log, tempo) {
+            setTimeout(function() {
+                kill_log.style.display = 'none';
+            }, tempo);
+        }
+
+        // Add event listener for mouse click
+        window.addEventListener('click', atira, false);
+        
+        const fpcam = new PointerLockControls( camera, renderer.domElement );
+
+        scene.add(fpcam.getObject());
+        
+        const togglePointerLock = function () {
+            if (document.pointerLockElement === renderer.domElement) {
+                fpcam.unlock();
+                menu.style.display = 'block';
+            } else {
+                fpcam.lock();
+                menu.style.display = 'none';
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const menu = document.getElementById('menu');
+            
+            menu.addEventListener('click', () => {
+                togglePointerLock();
+                isPointerLocked = !isPointerLocked;
+            });
+        });
+
+        // Variável para rastrear o estado de bloqueio do mouse
+        let isPointerLocked = false;
+
+        // pausa
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'c' || event.key === 'C') {
+                togglePointerLock();
+                isPointerLocked = !isPointerLocked;
+            }
+        }, false);
+
+        /*
+        document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const menuDiv = document.getElementById('menu');
+            
+            if (menuDiv.style.display === 'none') {
+                menuDiv.style.display = 'block'; // ou 'flex', dependendo do display original
+                if (!isPointerLocked) {
+                    togglePointerLock();
+                    isPointerLocked = !isPointerLocked;
+                }
+            } else {
+                menuDiv.style.display = 'none';
+                if (isPointerLocked) {
+                    togglePointerLock();
+                    isPointerLocked = !isPointerLocked;
+                }
+            }
+        }
+    });
+        */
+                
+        const person = new FirstPersonControls(camera, renderer.domElement);
+        person.movementSpeed = 5;
+        person.lookSpeed = 0.8;
+        person.noFly = true;
+        person.lookVertical = true;
+
+        let clock = new THREE.Clock(true);
+
+        camera.position.set(0, 1.7, 0);
+        let cameraHeight = camera.position.y;
+        cubo.position.set(0, 1, -10)
+
+        chao.rotation.x = -Math.PI/2;
+        scene.add( chao );
+
+        let cubes = [];
+
+        // Função para gerar cubos
+        function createCube(x, y, z) {
+            // Crie a geometria do cubo
+            const geometry = new THREE.BoxGeometry(1, 1.5, 1);
+
+            // Crie o material
+            const material = new THREE.MeshNormalMaterial();
+
+            // Crie a malha do cubo
+            const cube = new THREE.Mesh(geometry, material);
+
+            // Defina a posição do cubo
+            cube.position.set(x, y, z);
+
+            // Adicione o cubo à cena
+            scene.add(cube);
+
+            // Adicione o cubo ao array de cubos
+            cubes.push(cube);
+        }
+        function generateCubes() {
+            const numCubes = 15; // Número de cubos a serem gerados
+
+            for (let i = 0; i < numCubes; i++) {
+                // Gere posições aleatórias para os cubos
+                const x = Math.random() * 10 - 2; // Intervalo de -5 a 5
+                const y = 1.5; // Intervalo de -5 a 5
+                const z = Math.random() * 10 - 2; // Intervalo de -5 a 5
+
+                // Crie um cubo com a posição aleatória
+                createCube(x, y, z);
+            }
+        }
+
+        // Chame a função para gerar os cubos
+        generateCubes();
+
+        let moveForward = false;
+        let moveBackward = false;
+        let moveLeft = false;
+        let moveRight = false;
+
+        const keyboard = new THREEx.KeyboardState();
+
+        function animate() {
+            requestAnimationFrame( animate );
+            const delta = clock.getDelta();
+
+            if (moveForward) camera.translateZ(-person.movementSpeed * delta);
+            if (moveBackward) camera.translateZ(person.movementSpeed * delta);
+            if (moveLeft) camera.translateX(-person.movementSpeed * delta);
+            if (moveRight) camera.translateX(person.movementSpeed * delta);
+
+            camera.position.y = cameraHeight;
+            renderer.render( scene, camera );
+        }
+        
+        function handleKeydown(event) {
+            if (keyboard.pressed("w")) moveForward = true;
+            if (keyboard.pressed("s")) moveBackward = true;
+            if (keyboard.pressed("a")) moveLeft = true;
+            if (keyboard.pressed("d")) moveRight = true;
+            if (keyboard.pressed("shift+w")) person.movementSpeed = 9;
+            if (keyboard.pressed("v")) cameraHeight = 1;
+        }
+
+        function handleKeyup(event) {
+            if (!keyboard.pressed("w")) moveForward = false;
+            if (!keyboard.pressed("s")) moveBackward = false;
+            if (!keyboard.pressed("a")) moveLeft = false;
+            if (!keyboard.pressed("d")) moveRight = false;
+            if (!keyboard.pressed("shift+w")) person.movementSpeed = 5;
+            if (!keyboard.pressed("v")) cameraHeight = 1.7;
+            
+        }
+
+        // Adiciona event listeners para o teclado
+        document.addEventListener('keydown', handleKeydown);
+        document.addEventListener('keyup', handleKeyup);
+        animate();
+
+
+
+    </script>
+
+</body>
+</html>
