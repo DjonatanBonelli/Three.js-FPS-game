@@ -58,7 +58,7 @@
     <title>Battle Shoot</title>
 </head>
 <body>
-    <div class="menu" id="menu">Continuar (F)</div>
+    <div class="menu" id="menu">Continuar (C)</div>
     <div class="mira" id="mira"></div>
     <div class="killLogFrame" id="killLogFrame"></div>
 
@@ -167,7 +167,7 @@
 
                 // Check if the intersected object is a BoxGeometry
                 if (object.geometry instanceof THREE.BoxGeometry) {
-                    scene.remove(object);
+                    object.visible = false; // Hide the object
                     count++;
                     criaKillLog(count);
                     
@@ -234,7 +234,7 @@
 
         // pausa
         document.addEventListener('keydown', function (event) {
-            if (event.key === 'f' || event.key === 'F') {
+            if (event.key === 'c' || event.key === 'C') {
                 togglePointerLock();
                 isPointerLocked = !isPointerLocked;
             }
@@ -271,7 +271,7 @@
         let clock = new THREE.Clock(true);
 
         camera.position.set(0, 1.7, 0);
-        let cameraHeight = camera.position.y;
+        const cameraHeight = camera.position.y;
         cubo.position.set(0, 1, -10)
 
         chao.rotation.x = -Math.PI/2;
@@ -342,7 +342,7 @@
             if (keyboard.pressed("a")) moveLeft = true;
             if (keyboard.pressed("d")) moveRight = true;
             if (keyboard.pressed("shift+w")) person.movementSpeed = 9;
-            if (keyboard.pressed("c")) cameraHeight = 1.2;
+            if (keyboard.pressed("space")) cameraHeight += 1;
         }
 
         function handleKeyup(event) {
@@ -351,7 +351,6 @@
             if (!keyboard.pressed("a")) moveLeft = false;
             if (!keyboard.pressed("d")) moveRight = false;
             if (!keyboard.pressed("shift+w")) person.movementSpeed = 5;
-            if (!keyboard.pressed("c")) cameraHeight = 1.7;
         }
 
         // Adiciona event listeners para o teclado
