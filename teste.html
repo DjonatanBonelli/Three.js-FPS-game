@@ -24,6 +24,20 @@
             left: 50%;
             transform: translate(-50%, -50%);
         }
+
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2em;
+            font-family: Arial, Helvetica, sans-serif;
+            color: red;
+            display: none;
+            z-index: 10;
+            pointer-events: none; 
+        }
+
         .menu{
             position: fixed;
             top: 50%;
@@ -53,6 +67,15 @@
             width: 200px;
             height: 400px;
         }
+
+        .recarga{
+            position: fixed;
+            bottom: 5%;
+            right: 5%;
+            font-size: 50px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
                 
     </style>
     <title>Battle Shoot</title>
@@ -60,7 +83,9 @@
 <body>
     <div class="menu" id="menu">Continuar (C)</div>
     <div class="mira" id="mira"></div>
+    <div class="crosshair" id="crosshair">X</div>
     <div class="killLogFrame" id="killLogFrame"></div>
+    <span class="recarga" id="recarga"></span>
 
     <script type="importmap">
         {
@@ -77,8 +102,8 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         
-    
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
@@ -89,11 +114,11 @@
         
         const materialPhysical = new THREE.MeshPhysicalMaterial({
         color: 0x00ff00,        // Cor básica
-        roughness: 0,         // Rugosidade da superfície (0 é liso, 1 é completamente rugoso)
-        metalness: 0,         // Metalicidade da superfície (0 é não metálico, 1 é completamente metálico)
-        clearcoat: 0,         // Cobertura clara (0 a 1)
+        roughness: 0.5,         // Rugosidade da superfície (0 é liso, 1 é completamente rugoso)
+        metalness: 0.5,         // Metalicidade da superfície (0 é não metálico, 1 é completamente metálico)
+        clearcoat: 0.5,         // Cobertura clara (0 a 1)
         clearcoatRoughness: 0,// Rugosidade da cobertura clara (0 a 1)
-        reflectivity: 0,      // Refletividade da superfície (0 a 1)
+        reflectivity: 0.5,      // Refletividade da superfície (0 a 1)
         transmission: 0,      // Transmissão de luz (0 a 1, 0 é opaco, 1 é completamente transparente)
         thickness: 0,         // Espessura do material para transmissão
         ior: 0,               // Índice de refração (1.0 para ar, valores maiores para materiais como vidro, água, etc.)
@@ -127,11 +152,31 @@
         ///////////////// TEXTURAS /////////////// 
 
         const plano = new THREE.PlaneGeometry( 1000, 1000, 100, 100 );
-        const corpo = new THREE.BoxGeometry( 2, 2, 2 );
+        const corpo = new THREE.BoxGeometry( 50, 0.8, 2 );
 
         const chao = new THREE.Mesh( plano, material );
         const cubo = new THREE.Mesh( corpo, materialPhysical );
+        cubo.position.set(0, 1, -3)
 
+            /*
+        const models = [
+            { url: 'carro.glb', position: { x: 0, y: 0, z: 0 }, scale: 1 },
+            { url: 'casa.glb', position: { x: 5, y: 0, z: 0 }, scale: 1 },
+            { url: 'espada.glb', position: { x: -5, y: 0, z: 0 }, scale: 1 }
+        ];
+
+        const loader = new GLTFLoader();
+        models.forEach(model => {
+            loader.load(model.url, gltf => {
+                const object = gltf.scene;
+                object.position.set(model.position.x, model.position.y, model.position.z);
+                object.scale.set(model.scale, model.scale, model.scale);
+                scene.add(object);
+            }, undefined, error => {
+                console.error('An error happened', error);
+            });
+        });
+            */
         
         // Luz ambiente
         const ambientLight = new THREE.AmbientLight(0x404040, 20);
@@ -142,42 +187,135 @@
         directionalLight.position.set(10, 10, 10);
         //scene.add(directionalLight);
 
+        scene.add(cubo)
+    
+        const mira = document.getElementById("mira");
 
-        //Controles 
+        class Personagem {
+            constructor(geometry, material, vidaInicial){
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.vida = vidaInicial;
+                scene.add(this.mesh);
+            }
 
-        // Raycaster
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        let count = 0;
+            tomaDano(qtdDano){
+                this.vida -= qtdDano;
+                mira.style.width = "2px";
+                if (this.vida <= 0){
+                    this.morre();
+                }
+            }
 
-        // Function to handle click
-        function atira(event) {
-            // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
-            mouse.x = 0;
-            mouse.y = 0;
+            morre() {
+                scene.remove(this.mesh);
+                count++;
+                criaKillLog(count);
+                
+                const kill_log = document.getElementById('killLog' + count);
+                const tempo = 2000;
+                setKillLog(kill_log, tempo);
+            }
+        }
 
-            // Update the raycaster with the camera and mouse position
-            raycaster.setFromCamera(mouse, camera);
+        let inimigos = [];
 
-            // Calculate the object intersecting the picking ray
-            const intersection = raycaster.intersectObject(scene, true)[0]; // Retorna a primeira interseção encontrada
+        function criaInimigo(x, y, z) {
 
-            if (intersection) {
-                const object = intersection.object;
+            const geometry = new THREE.BoxGeometry(1, 1.5, 1);
+            const material = new THREE.MeshNormalMaterial();
 
-                // Check if the intersected object is a BoxGeometry
-                if (object.geometry instanceof THREE.BoxGeometry) {
-                    object.visible = false; // Hide the object
-                    count++;
-                    criaKillLog(count);
-                    
-                    const kill_log = document.getElementById('killLog' + count);
-                    const tempo = 2000;
-                    setKillLog(kill_log, tempo);
+            const inimigo = new Personagem(geometry, material, 100);
+
+            inimigo.mesh.position.set(x, y, z);
+
+            inimigos.push(inimigo);
+        }
+
+        function geraInimigos(numInimigos) {
+
+            for (let i = 0; i < numInimigos; i++) {
+                // Gere posições aleatórias para os inimigos
+                const dists = [-12, -18, -24]
+                const dist_sel = Math.floor(Math.random() * 3); 
+                const x = Math.random() * 10 - 5;
+                const y = 1.5; 
+                const z = dists[dist_sel];
+
+                criaInimigo(x, y, z);
+            }
+        }
+        function showCrosshair() {
+            crosshair.style.display = 'block';
+            crosshair.style.opacity = 1;
+            setTimeout(() => {
+                crosshair.style.transition = 'opacity 0.1s';
+                crosshair.style.opacity = 0;
+                setTimeout(() => {
+                    crosshair.style.display = 'none';
+                    crosshair.style.transition = ''; // Reset transition for next use
+                }, 20);
+            }, 20); // Duration the "X" stays visible
+        }
+
+        let municao = 15;
+        document.getElementById('recarga').textContent = municao;
+
+        function atira() {
+            if(municao >= 1){
+                document.getElementById('recarga').textContent = municao-1;
+                // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+                const mouse = new THREE.Vector2(0, 0);
+    
+                // Update the raycaster with the camera and mouse position
+                raycaster.setFromCamera(mouse, camera);
+    
+                // Calculate the object intersecting the picking ray
+                const intersection = raycaster.intersectObject(scene, true)[0]; // Retorna a primeira interseção encontrada
+    
+                if (intersection) {
+                    const object = intersection.object;
+    
+                    const personagem = inimigos.find(inimigo => inimigo.mesh === object);
+                    if (personagem) {
+                        personagem.tomaDano(25);
+                        municao -= 1;
+                        console.log(municao);
+                        showCrosshair();
+                    }
                 }
             }
         }
         
+        let isShooting = false;
+        let shootingInterval;
+        document.addEventListener('mousedown', onMouseDown, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+
+        function onMouseDown(event) {
+            isShooting = true;
+            startShooting();
+        }
+
+        function onMouseUp(event) {
+            isShooting = false;
+            stopShooting();
+        }
+
+        function startShooting() {
+            if (shootingInterval) return; // Evitar múltiplos intervalos
+
+            shootingInterval = setInterval(() => {
+                if (isShooting) {
+                    atira();
+                }
+            }, 100); // Ajuste o intervalo conforme necessário (100ms = 10 tiros por segundo)
+        }
+
+        function stopShooting() {
+            clearInterval(shootingInterval);
+            shootingInterval = null;
+        }
+
         function criaKillLog(count) {
             // Crie uma nova div
             const kill_log = document.createElement('div');
@@ -240,28 +378,34 @@
             }
         }, false);
 
-        /*
-        document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            const menuDiv = document.getElementById('menu');
-            
-            if (menuDiv.style.display === 'none') {
-                menuDiv.style.display = 'block'; // ou 'flex', dependendo do display original
-                if (!isPointerLocked) {
-                    togglePointerLock();
-                    isPointerLocked = !isPointerLocked;
-                }
-            } else {
-                menuDiv.style.display = 'none';
-                if (isPointerLocked) {
-                    togglePointerLock();
-                    isPointerLocked = !isPointerLocked;
-                }
+        //Controles 
+
+        // Raycaster
+        const raycaster = new THREE.Raycaster();
+        const direction = new THREE.Vector3();
+        let collisionDistance = 1;
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function detectCollisions() {
+            camera.getWorldDirection(direction);
+            raycaster.set(camera.position, direction);
+
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0 && intersects[0].distance < 1) {
+                // Se a câmera está muito perto do objeto, impede o movimento para frente
+                // Move a câmera para trás
+                camera.position.addScaledVector(direction, -0.1);
             }
         }
-    });
-        */
-                
+
+        const mouse = new THREE.Vector2();
+        let count = 0;
+
         const person = new FirstPersonControls(camera, renderer.domElement);
         person.movementSpeed = 5;
         person.lookSpeed = 0.8;
@@ -271,50 +415,12 @@
         let clock = new THREE.Clock(true);
 
         camera.position.set(0, 1.7, 0);
-        const cameraHeight = camera.position.y;
-        cubo.position.set(0, 1, -10)
+        let cameraHeight = camera.position.y;
 
         chao.rotation.x = -Math.PI/2;
         scene.add( chao );
 
-        let cubes = [];
-
-        // Função para gerar cubos
-        function createCube(x, y, z) {
-            // Crie a geometria do cubo
-            const geometry = new THREE.BoxGeometry(1, 1.5, 1);
-
-            // Crie o material
-            const material = new THREE.MeshNormalMaterial();
-
-            // Crie a malha do cubo
-            const cube = new THREE.Mesh(geometry, material);
-
-            // Defina a posição do cubo
-            cube.position.set(x, y, z);
-
-            // Adicione o cubo à cena
-            scene.add(cube);
-
-            // Adicione o cubo ao array de cubos
-            cubes.push(cube);
-        }
-        function generateCubes() {
-            const numCubes = 15; // Número de cubos a serem gerados
-
-            for (let i = 0; i < numCubes; i++) {
-                // Gere posições aleatórias para os cubos
-                const x = Math.random() * 10 - 2; // Intervalo de -5 a 5
-                const y = 1.5; // Intervalo de -5 a 5
-                const z = Math.random() * 10 - 2; // Intervalo de -5 a 5
-
-                // Crie um cubo com a posição aleatória
-                createCube(x, y, z);
-            }
-        }
-
-        // Chame a função para gerar os cubos
-        generateCubes();
+        geraInimigos(7);
 
         let moveForward = false;
         let moveBackward = false;
@@ -333,6 +439,7 @@
             if (moveRight) camera.translateX(person.movementSpeed * delta);
 
             camera.position.y = cameraHeight;
+            detectCollisions();
             renderer.render( scene, camera );
         }
         
@@ -342,7 +449,26 @@
             if (keyboard.pressed("a")) moveLeft = true;
             if (keyboard.pressed("d")) moveRight = true;
             if (keyboard.pressed("shift+w")) person.movementSpeed = 9;
-            if (keyboard.pressed("space")) cameraHeight += 1;
+            if (keyboard.pressed("v")) cameraHeight = 1;
+            if (keyboard.pressed("r")){
+                document.getElementById('recarga').textContent = "Recarregando...";
+                setTimeout(() => {
+                    municao = 15;
+                    document.getElementById('recarga').textContent = municao;
+                }, 1500);}; 
+            if (keyboard.pressed("t")) geraInimigos(7);
+            
+            /*
+            if (keyboard.pressed("space")){
+                if (cameraHeight <= 3) { 
+                    cameraHeight += 2; 
+                } else {
+                    if (cameraHeight > 1.7) {
+                        cameraHeight = 1.7; 
+                    }
+                }
+            }
+            */
         }
 
         function handleKeyup(event) {
@@ -351,6 +477,9 @@
             if (!keyboard.pressed("a")) moveLeft = false;
             if (!keyboard.pressed("d")) moveRight = false;
             if (!keyboard.pressed("shift+w")) person.movementSpeed = 5;
+            if (!keyboard.pressed("v")) cameraHeight = 1.7;
+            if(!KeyboardState.pressed("r")) 
+                document.getElementById('recarga').textContent = municao;
         }
 
         // Adiciona event listeners para o teclado
