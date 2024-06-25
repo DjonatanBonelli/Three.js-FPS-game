@@ -101,14 +101,14 @@
 
         .tempo{
             position: fixed;
-            left: 14%;
+            left: 20%;
             font-size: 50px;
             pointer-events: none; 
         }
 
         .pontos{
             position: fixed;
-            left: 15%;
+            left: 22%;
             top: 6%;
             font-size: 50px;
             pointer-events: none; 
@@ -116,7 +116,7 @@
 
       
     </style>
-    <title>Battle Shoot</title>
+    <title>TF CG</title>
 </head>
 <body>
     <span class="tempotxt" id="tempotxt">Tempo (s): </span>
@@ -385,13 +385,23 @@
             isShooting = false;
             stopShooting();
         }
+        function aplicarRecuo(camera, intensidadeRecuo) {
+            // Cria uma matriz de rotação para o recuo
+            const recuoMatrix = new THREE.Matrix4().makeRotationX(intensidadeRecuo);
 
+            // Aplica a rotação em relação ao sistema de coordenadas local da câmera
+            camera.matrix.multiply(recuoMatrix);
+            camera.rotation.setFromRotationMatrix(camera.matrix);
+        }
         function startShooting() {
             if (shootingInterval) return; 
 
             shootingInterval = setInterval(() => {
-                if (isShooting) {
+                if (isShooting && municao > 0) {
                     atira();
+                    const intensidadeRecuo = 0.01; // Ajuste a intensidade conforme necessário
+                    // Chamando a função de recuo (por exemplo, quando o disparo ocorre)
+                    aplicarRecuo(camera, intensidadeRecuo);
                 }
             }, 100); // (100ms = 10 tiros por segundo)
         }
@@ -580,4 +590,4 @@
     </script>
 
 </body>
-</html>
+</html> 
