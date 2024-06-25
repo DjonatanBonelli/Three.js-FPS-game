@@ -6,6 +6,7 @@
     <style>
         body {
             margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
             overflow: hidden; /* Para garantir que o cursor não apareça ao rolar a página */
         }
         canvas {
@@ -73,7 +74,44 @@
             bottom: 5%;
             right: 5%;
             font-size: 50px;
-            font-family: Arial, Helvetica, sans-serif;
+            pointer-events: none; 
+        }
+
+        .municao{
+            position: fixed;
+            bottom: 5%;
+            right: 10%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+
+        .ptstext{
+            position: fixed;
+            left: 1%;
+            top: 6%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+        .tempotxt{
+            position: fixed;
+            left: 1%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+
+        .tempo{
+            position: fixed;
+            left: 14%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+
+        .pontos{
+            position: fixed;
+            left: 15%;
+            top: 6%;
+            font-size: 50px;
+            pointer-events: none; 
         }
 
                 
@@ -81,11 +119,17 @@
     <title>Battle Shoot</title>
 </head>
 <body>
+    <span class="tempotxt" id="tempotxt">Tempo (s): </span>
+    <span class="tempo" id="tempo"></span>
+    <span class="ptstext" id="ptstext">Pontuação: </span>
+    <span class="pontos" id="pontos"></span>
     <div class="menu" id="menu">Continuar (C)</div>
     <div class="mira" id="mira"></div>
     <div class="crosshair" id="crosshair">X</div>
     <div class="killLogFrame" id="killLogFrame"></div>
+    <span class="municao" id="municao"> Munição: </span>
     <span class="recarga" id="recarga"></span>
+    <span class="ptfinal" id="ptfinal"></span>
 
     <script type="importmap">
         {
@@ -158,25 +202,18 @@
         const cubo = new THREE.Mesh( corpo, materialPhysical );
         cubo.position.set(0, 1, -3)
 
-            /*
-        const models = [
-            { url: 'carro.glb', position: { x: 0, y: 0, z: 0 }, scale: 1 },
-            { url: 'casa.glb', position: { x: 5, y: 0, z: 0 }, scale: 1 },
-            { url: 'espada.glb', position: { x: -5, y: 0, z: 0 }, scale: 1 }
-        ];
-
-        const loader = new GLTFLoader();
-        models.forEach(model => {
-            loader.load(model.url, gltf => {
-                const object = gltf.scene;
-                object.position.set(model.position.x, model.position.y, model.position.z);
-                object.scale.set(model.scale, model.scale, model.scale);
-                scene.add(object);
-            }, undefined, error => {
-                console.error('An error happened', error);
+        /*
+        const loader = new THREE.GLTFLoader();
+            loader.load('M4A1.gltf', function(gltf) {
+                weapon = gltf.scene;
+                weapon.scale.set(0.5, 0.5, 0.5); // Adjust the scale if necessary
+                weapon.position.set(0, -0.5, -1); // Position the weapon in front of the camera
+                camera.add(weapon); // Attach the weapon to the camera
+                scene.add(camera);
+            }, undefined, function(error) {
+                console.error(error);
             });
-        });
-            */
+        */
         
         // Luz ambiente
         const ambientLight = new THREE.AmbientLight(0x404040, 20);
@@ -208,9 +245,10 @@
 
             morre() {
                 scene.remove(this.mesh);
+                pontuacao += 15;
+                pontos.textContent = pontuacao;
                 count++;
                 criaKillLog(count);
-                
                 const kill_log = document.getElementById('killLog' + count);
                 const tempo = 2000;
                 setKillLog(kill_log, tempo);
@@ -257,18 +295,17 @@
             }, 20); // Duration the "X" stays visible
         }
 
-        let municao = 15;
-        document.getElementById('recarga').textContent = municao;
-
+        
         function atira() {
-            if(municao >= 1){
-                document.getElementById('recarga').textContent = municao-1;
+            if(municao >= 1 && isPointerLocked == true){
+                municao -= 1;
+                document.getElementById('recarga').textContent = municao;
                 // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
                 const mouse = new THREE.Vector2(0, 0);
     
                 // Update the raycaster with the camera and mouse position
                 raycaster.setFromCamera(mouse, camera);
-    
+                
                 // Calculate the object intersecting the picking ray
                 const intersection = raycaster.intersectObject(scene, true)[0]; // Retorna a primeira interseção encontrada
     
@@ -278,7 +315,6 @@
                     const personagem = inimigos.find(inimigo => inimigo.mesh === object);
                     if (personagem) {
                         personagem.tomaDano(25);
-                        municao -= 1;
                         console.log(municao);
                         showCrosshair();
                     }
@@ -290,6 +326,15 @@
         let shootingInterval;
         document.addEventListener('mousedown', onMouseDown, false);
         document.addEventListener('mouseup', onMouseUp, false);
+        
+        let municao = 15;
+        let cronometro = 60;
+        let pontuacao = 0;
+        document.getElementById('recarga').textContent = municao;
+        let pontos = document.getElementById('pontos');
+        let time = document.getElementById('tempo');
+        pontos.textContent = pontuacao;
+        time.textContent = cronometro;
 
         function onMouseDown(event) {
             isShooting = true;
@@ -341,6 +386,34 @@
             }, tempo);
         }
 
+
+        let intervalId;
+        let timerRunning = false;
+
+        function updateCounter() {
+            if (cronometro > 0) {
+                cronometro--;
+                time.textContent = cronometro;
+            } else {
+                stopTimer();
+
+            }
+        }
+
+        function startTimer() {
+            if (!timerRunning) {
+                timerRunning = true;
+                intervalId = setInterval(updateCounter, 1000);
+            }
+        }
+
+        function stopTimer() {
+            if (timerRunning) {
+                timerRunning = false;
+                clearInterval(intervalId);
+            }
+        }
+
         // Add event listener for mouse click
         window.addEventListener('click', atira, false);
         
@@ -358,21 +431,17 @@
             }
         };
 
-        document.addEventListener('DOMContentLoaded', (event) => {
-            const menu = document.getElementById('menu');
-            
-            menu.addEventListener('click', () => {
-                togglePointerLock();
-                isPointerLocked = !isPointerLocked;
-            });
-        });
-
-        // Variável para rastrear o estado de bloqueio do mouse
         let isPointerLocked = false;
 
         // pausa
         document.addEventListener('keydown', function (event) {
             if (event.key === 'c' || event.key === 'C') {
+                if(timerRunning){
+                    stopTimer();
+                }
+                else{
+                    startTimer();
+                }
                 togglePointerLock();
                 isPointerLocked = !isPointerLocked;
             }
@@ -451,10 +520,12 @@
             if (keyboard.pressed("shift+w")) person.movementSpeed = 9;
             if (keyboard.pressed("v")) cameraHeight = 1;
             if (keyboard.pressed("r")){
+                document.getElementById('municao').style.display = "none";
                 document.getElementById('recarga').textContent = "Recarregando...";
                 setTimeout(() => {
                     municao = 15;
                     document.getElementById('recarga').textContent = municao;
+                    document.getElementById('municao').style.display = "block";
                 }, 1500);}; 
             if (keyboard.pressed("t")) geraInimigos(7);
             
@@ -478,10 +549,10 @@
             if (!keyboard.pressed("d")) moveRight = false;
             if (!keyboard.pressed("shift+w")) person.movementSpeed = 5;
             if (!keyboard.pressed("v")) cameraHeight = 1.7;
-            if(!KeyboardState.pressed("r")) 
+            if(!keyboard.pressed("r")){ 
                 document.getElementById('recarga').textContent = municao;
         }
-
+    }
         // Adiciona event listeners para o teclado
         document.addEventListener('keydown', handleKeydown);
         document.addEventListener('keyup', handleKeyup);
