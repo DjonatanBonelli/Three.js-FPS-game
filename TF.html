@@ -306,33 +306,9 @@
             }, 20); 
         }
 
-        function fire() {
-            // Cria a esfera (bala)
-            const bulletGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-            const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-            const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
-
-            // Posiciona a bala na ponta da arma (cubóide)
-            bullet.position.copy(weapon.position);
-            bullet.position.z += 2;
-
-            // Adiciona a bala à cena
-            scene.add(bullet);
-
-            // Anima a bala movendo-a para frente
-            const tween = new TWEEN.Tween(bullet.position)
-                .to({ z: bullet.position.z - 5 }, 500)
-                .easing(TWEEN.Easing.Linear.None)
-                .onComplete(() => {
-                    scene.remove(bullet); // Remove a bala após a animação
-                })
-                .start();
-        }
-
-
+        
         function atira() {
             if(municao >= 1 && isPointerLocked == true){
-                fire();
                 municao -= 1;
                 document.getElementById('recarga').textContent = municao;
 
@@ -566,9 +542,9 @@
                 document.getElementById('municao').style.display = "none";
                 document.getElementById('recarga').textContent = "Recarregando...";
                 setTimeout(() => {
-                    document.getElementById('municao').style.display = "block";
                     municao = 25;
                     document.getElementById('recarga').textContent = municao;
+                    document.getElementById('municao').style.display = "block";
                 }, 1500);}; 
             if (keyboard.pressed("t")) geraInimigos(7);
             
