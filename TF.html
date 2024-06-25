@@ -179,6 +179,8 @@
         // Carrega a textura de equirectangular
         const textureLoader2 = new THREE.TextureLoader();
         const texture2 = textureLoader.load('textceu.jpg');
+
+        const textchao = textureLoader.load('metal-texture.jpg');
         // Configura a textura para repetir na direção Y (para o céu)
         texture2.wrapS = THREE.RepeatWrapping;
         texture2.repeat.y = 2; // Ajuste conforme necessário para obter o resultado desejado
@@ -193,15 +195,24 @@
         scene.add(sphere);
         // Crie um material com a textura
         const material = new THREE.MeshBasicMaterial({ map: texture }); // Use MeshBasicMaterial para uma textura sem iluminação
-
+        const materialchao = new THREE.MeshBasicMaterial({ map: textchao });
         ///////////////// TEXTURAS /////////////// 
 
-        const plano = new THREE.PlaneGeometry( 1000, 1000, 100, 100 );
-        const corpo = new THREE.BoxGeometry( 50, 0.8, 2 );
+        const plano = new THREE.PlaneGeometry( 100, 100, 100, 100 );
+        const corpo = new THREE.BoxGeometry( 25, 2.5, 2 );
+        const caixa = new THREE.BoxGeometry(3, 7, 3)
+        const paredebox = new THREE.BoxGeometry(35, 10, 1)
 
-        const chao = new THREE.Mesh( plano, material );
-        const cubo = new THREE.Mesh( corpo, materialPhysical );
-        cubo.position.set(0, 1, -3)
+        const chao = new THREE.Mesh( plano, materialchao );
+        const cubo = new THREE.Mesh( corpo, material );
+        const cubo2 = new THREE.Mesh( caixa, material);
+        const parede = new THREE.Mesh( paredebox, material )
+
+        cubo.position.set(8, 0, -3);
+        cubo2.position.set(-10, 0, -4);
+        parede.position.set(0, 0, -35)
+
+        scene.add(cubo, cubo2, parede);
 
         let model;
 
@@ -232,7 +243,6 @@
         directionalLight.position.set(10, 10, 10);
         //scene.add(directionalLight);
 
-        scene.add(cubo)
     
         const mira = document.getElementById("mira");
 
@@ -542,14 +552,14 @@
             if (keyboard.pressed("d")) moveRight = true;
             if (keyboard.pressed("shift+w")) person.movementSpeed = 9;
             if (keyboard.pressed("v")) cameraHeight = 1;
-            if (keyboard.pressed("r")){
+            if (keyboard.pressed("r") && municao < 25){
                 document.getElementById('municao').style.display = "none";
                 document.getElementById('recarga').textContent = "Recarregando...";
                 setTimeout(() => {
                     municao = 25;
                     document.getElementById('recarga').textContent = municao;
                     document.getElementById('municao').style.display = "block";
-                }, 1500);}; 
+                }, 1000);}; 
             if (keyboard.pressed("t")) geraInimigos(12);
             
         }
@@ -561,9 +571,7 @@
             if (!keyboard.pressed("d")) moveRight = false;
             if (!keyboard.pressed("shift+w")) person.movementSpeed = 5;
             if (!keyboard.pressed("v")) cameraHeight = 1.7;
-            if(!keyboard.pressed("r")){ 
-                document.getElementById('recarga').textContent = municao;
-        }
+
     }
         document.addEventListener('keydown', handleKeydown);
         document.addEventListener('keyup', handleKeyup);
