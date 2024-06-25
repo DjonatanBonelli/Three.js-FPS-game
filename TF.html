@@ -114,7 +114,7 @@
             pointer-events: none; 
         }
 
-                
+      
     </style>
     <title>Battle Shoot</title>
 </head>
@@ -129,7 +129,6 @@
     <div class="killLogFrame" id="killLogFrame"></div>
     <span class="municao" id="municao"> Munição: </span>
     <span class="recarga" id="recarga"></span>
-    <span class="ptfinal" id="ptfinal"></span>
 
     <script type="importmap">
         {
@@ -147,6 +146,7 @@
         import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -202,19 +202,27 @@
         const cubo = new THREE.Mesh( corpo, materialPhysical );
         cubo.position.set(0, 1, -3)
 
-        /*
-        const loader = new THREE.GLTFLoader();
-            loader.load('M4A1.gltf', function(gltf) {
-                weapon = gltf.scene;
-                weapon.scale.set(0.5, 0.5, 0.5); // Adjust the scale if necessary
-                weapon.position.set(0, -0.5, -1); // Position the weapon in front of the camera
-                camera.add(weapon); // Attach the weapon to the camera
-                scene.add(camera);
-            }, undefined, function(error) {
-                console.error(error);
-            });
-        */
-        
+        let model;
+
+        const loader = new OBJLoader();
+            loader.load(
+                'ump47.obj',
+                (object) => {
+                    scene.add(object);
+                    object.position.set(1, -1, -2);
+                    object.rotation.y = 1.5;
+                    object.scale.set(0.25, 0.25, 0.25); 
+                    model = object;
+                    camera.add(object);
+                },
+                (xhr) => {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                (error) => {
+                    console.error('An error occurred:', error);
+                }
+            );
+
         // Luz ambiente
         const ambientLight = new THREE.AmbientLight(0x404040, 20);
         scene.add(ambientLight);
@@ -298,15 +306,38 @@
             }, 20); 
         }
 
-        
+        function fire() {
+            // Cria a esfera (bala)
+            const bulletGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+            const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+
+            // Posiciona a bala na ponta da arma (cubóide)
+            bullet.position.copy(weapon.position);
+            bullet.position.z += 2;
+
+            // Adiciona a bala à cena
+            scene.add(bullet);
+
+            // Anima a bala movendo-a para frente
+            const tween = new TWEEN.Tween(bullet.position)
+                .to({ z: bullet.position.z - 5 }, 500)
+                .easing(TWEEN.Easing.Linear.None)
+                .onComplete(() => {
+                    scene.remove(bullet); // Remove a bala após a animação
+                })
+                .start();
+        }
+
+
         function atira() {
             if(municao >= 1 && isPointerLocked == true){
+                fire();
                 municao -= 1;
                 document.getElementById('recarga').textContent = municao;
-                // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+
                 const mouse = new THREE.Vector2(0, 0);
     
-                // Update the raycaster with the camera and mouse position
                 raycaster.setFromCamera(mouse, camera);
                 
                 // Calculate the object intersecting the picking ray
@@ -326,7 +357,7 @@
                                 inimigos.splice(index, 1);
                             }
 
-                            if(inimigos.length === 0) geraInimigos(7);
+                            if(inimigos.length === 0 && cronometro > 0) geraInimigos(7);
                         }
                     }
                 }
@@ -358,13 +389,13 @@
         }
 
         function startShooting() {
-            if (shootingInterval) return; // Evitar múltiplos intervalos
+            if (shootingInterval) return; // Evita múltiplos intervalos
 
             shootingInterval = setInterval(() => {
                 if (isShooting) {
                     atira();
                 }
-            }, 100); // Ajuste o intervalo conforme necessário (100ms = 10 tiros por segundo)
+            }, 100); // (100ms = 10 tiros por segundo)
         }
 
         function stopShooting() {
@@ -373,10 +404,9 @@
         }
 
         function criaKillLog(count) {
-            // Crie uma nova div
-            const kill_log = document.createElement('div');
             
-            // Adicione conteúdo ou estilos à nova div, se necessário
+            const kill_log = document.createElement('div');
+        
             kill_log.id = 'killLog' + count;
             kill_log.display = 'block';
             kill_log.textContent = 'Você abateu o bot Nº ' + count + "!";
@@ -385,7 +415,7 @@
             kill_log.style.marginTop = '10px';
             kill_log.style.pointerEvents = 'none';
             kill_log.style.userSelect = 'none';
-            // Adicione a nova div ao container existente no DOM
+
             const container = document.getElementById('killLogFrame');
             container.appendChild(kill_log);
 
@@ -407,7 +437,9 @@
                 time.textContent = cronometro;
             } else {
                 stopTimer();
-
+                togglePointerLock;
+                isPointerLocked = !isPointerLocked;
+                menu.style.display = "block"
             }
         }
 
@@ -519,7 +551,7 @@
             if (moveRight) camera.translateX(person.movementSpeed * delta);
 
             camera.position.y = cameraHeight;
-            detectCollisions();
+           // detectCollisions();
             renderer.render( scene, camera );
         }
         
@@ -534,9 +566,9 @@
                 document.getElementById('municao').style.display = "none";
                 document.getElementById('recarga').textContent = "Recarregando...";
                 setTimeout(() => {
+                    document.getElementById('municao').style.display = "block";
                     municao = 25;
                     document.getElementById('recarga').textContent = municao;
-                    document.getElementById('municao').style.display = "block";
                 }, 1500);}; 
             if (keyboard.pressed("t")) geraInimigos(7);
             

@@ -6,6 +6,7 @@
     <style>
         body {
             margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
             overflow: hidden; /* Para garantir que o cursor não apareça ao rolar a página */
         }
         canvas {
@@ -73,18 +74,60 @@
             bottom: 5%;
             right: 5%;
             font-size: 50px;
-            font-family: Arial, Helvetica, sans-serif;
+            pointer-events: none; 
         }
 
-                
+        .municao{
+            position: fixed;
+            bottom: 5%;
+            right: 10%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+
+        .ptstext{
+            position: fixed;
+            left: 1%;
+            top: 6%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+        .tempotxt{
+            position: fixed;
+            left: 1%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+
+        .tempo{
+            position: fixed;
+            left: 14%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+
+        .pontos{
+            position: fixed;
+            left: 15%;
+            top: 6%;
+            font-size: 50px;
+            pointer-events: none; 
+        }
+
+      
     </style>
     <title>Battle Shoot</title>
 </head>
 <body>
+    <span class="tempotxt" id="tempotxt">Tempo (s): </span>
+    <span class="tempo" id="tempo"></span>
+    <span class="ptstext" id="ptstext">Pontuação: </span>
+    <span class="pontos" id="pontos"></span>
     <div class="menu" id="menu">Continuar (C)</div>
     <div class="mira" id="mira"></div>
     <div class="crosshair" id="crosshair">X</div>
     <div class="killLogFrame" id="killLogFrame"></div>
+    <span class="municao" id="municao"> Munição: </span>
     <span class="recarga" id="recarga"></span>
 
     <script type="importmap">
@@ -103,6 +146,7 @@
         import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -158,26 +202,27 @@
         const cubo = new THREE.Mesh( corpo, materialPhysical );
         cubo.position.set(0, 1, -3)
 
-            /*
-        const models = [
-            { url: 'carro.glb', position: { x: 0, y: 0, z: 0 }, scale: 1 },
-            { url: 'casa.glb', position: { x: 5, y: 0, z: 0 }, scale: 1 },
-            { url: 'espada.glb', position: { x: -5, y: 0, z: 0 }, scale: 1 }
-        ];
+        let model;
 
-        const loader = new GLTFLoader();
-        models.forEach(model => {
-            loader.load(model.url, gltf => {
-                const object = gltf.scene;
-                object.position.set(model.position.x, model.position.y, model.position.z);
-                object.scale.set(model.scale, model.scale, model.scale);
-                scene.add(object);
-            }, undefined, error => {
-                console.error('An error happened', error);
-            });
-        });
-            */
-        
+        const loader = new OBJLoader();
+            loader.load(
+                'ump47.obj',
+                (object) => {
+                    scene.add(object);
+                    object.position.set(1, -1, -2);
+                    object.rotation.y = 1.5;
+                    object.scale.set(0.25, 0.25, 0.25); 
+                    model = object;
+                    camera.add(object);
+                },
+                (xhr) => {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+                (error) => {
+                    console.error('An error occurred:', error);
+                }
+            );
+
         // Luz ambiente
         const ambientLight = new THREE.AmbientLight(0x404040, 20);
         scene.add(ambientLight);
@@ -203,14 +248,19 @@
                 mira.style.width = "2px";
                 if (this.vida <= 0){
                     this.morre();
+                    return 1;
+                }
+                else{
+                    return 0;
                 }
             }
 
             morre() {
                 scene.remove(this.mesh);
+                pontuacao += 15;
+                pontos.textContent = pontuacao;
                 count++;
                 criaKillLog(count);
-                
                 const kill_log = document.getElementById('killLog' + count);
                 const tempo = 2000;
                 setKillLog(kill_log, tempo);
@@ -234,7 +284,6 @@
         function geraInimigos(numInimigos) {
 
             for (let i = 0; i < numInimigos; i++) {
-                // Gere posições aleatórias para os inimigos
                 const dists = [-12, -18, -24]
                 const dist_sel = Math.floor(Math.random() * 3); 
                 const x = Math.random() * 10 - 5;
@@ -252,23 +301,21 @@
                 crosshair.style.opacity = 0;
                 setTimeout(() => {
                     crosshair.style.display = 'none';
-                    crosshair.style.transition = ''; // Reset transition for next use
+                    crosshair.style.transition = ''; 
                 }, 20);
-            }, 20); // Duration the "X" stays visible
+            }, 20); 
         }
 
-        let municao = 15;
-        document.getElementById('recarga').textContent = municao;
-
+        
         function atira() {
-            if(municao >= 1){
-                document.getElementById('recarga').textContent = municao-1;
-                // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+            if(municao >= 1 && isPointerLocked == true){
+                municao -= 1;
+                document.getElementById('recarga').textContent = municao;
+
                 const mouse = new THREE.Vector2(0, 0);
     
-                // Update the raycaster with the camera and mouse position
                 raycaster.setFromCamera(mouse, camera);
-    
+                
                 // Calculate the object intersecting the picking ray
                 const intersection = raycaster.intersectObject(scene, true)[0]; // Retorna a primeira interseção encontrada
     
@@ -277,10 +324,17 @@
     
                     const personagem = inimigos.find(inimigo => inimigo.mesh === object);
                     if (personagem) {
-                        personagem.tomaDano(25);
-                        municao -= 1;
-                        console.log(municao);
+                        let morreu = personagem.tomaDano(25);
                         showCrosshair();
+                        if(morreu === 1){
+                            const index = inimigos.findIndex(inimigo => inimigo.mesh === object);
+
+                            if (index !== -1) {
+                                inimigos.splice(index, 1);
+                            }
+
+                            if(inimigos.length === 0 && cronometro > 0) geraInimigos(7);
+                        }
                     }
                 }
             }
@@ -290,6 +344,15 @@
         let shootingInterval;
         document.addEventListener('mousedown', onMouseDown, false);
         document.addEventListener('mouseup', onMouseUp, false);
+        
+        let municao = 25;
+        let cronometro = 60;
+        let pontuacao = 0;
+        document.getElementById('recarga').textContent = municao;
+        let pontos = document.getElementById('pontos');
+        let time = document.getElementById('tempo');
+        pontos.textContent = pontuacao;
+        time.textContent = cronometro;
 
         function onMouseDown(event) {
             isShooting = true;
@@ -302,13 +365,13 @@
         }
 
         function startShooting() {
-            if (shootingInterval) return; // Evitar múltiplos intervalos
+            if (shootingInterval) return; // Evita múltiplos intervalos
 
             shootingInterval = setInterval(() => {
                 if (isShooting) {
                     atira();
                 }
-            }, 100); // Ajuste o intervalo conforme necessário (100ms = 10 tiros por segundo)
+            }, 100); // (100ms = 10 tiros por segundo)
         }
 
         function stopShooting() {
@@ -317,19 +380,18 @@
         }
 
         function criaKillLog(count) {
-            // Crie uma nova div
-            const kill_log = document.createElement('div');
             
-            // Adicione conteúdo ou estilos à nova div, se necessário
+            const kill_log = document.createElement('div');
+        
             kill_log.id = 'killLog' + count;
             kill_log.display = 'block';
-            kill_log.textContent = 'Você abateu o bot ' + count + "!";
+            kill_log.textContent = 'Você abateu o bot Nº ' + count + "!";
             kill_log.style.backgroundColor = 'lightblue';
             kill_log.style.padding = '10px';
             kill_log.style.marginTop = '10px';
             kill_log.style.pointerEvents = 'none';
             kill_log.style.userSelect = 'none';
-            // Adicione a nova div ao container existente no DOM
+
             const container = document.getElementById('killLogFrame');
             container.appendChild(kill_log);
 
@@ -339,6 +401,36 @@
             setTimeout(function() {
                 kill_log.style.display = 'none';
             }, tempo);
+        }
+
+
+        let intervalId;
+        let timerRunning = false;
+
+        function updateCounter() {
+            if (cronometro > 0) {
+                cronometro--;
+                time.textContent = cronometro;
+            } else {
+                stopTimer();
+                togglePointerLock;
+                isPointerLocked = !isPointerLocked;
+                menu.style.display = "block"
+            }
+        }
+
+        function startTimer() {
+            if (!timerRunning) {
+                timerRunning = true;
+                intervalId = setInterval(updateCounter, 1000);
+            }
+        }
+
+        function stopTimer() {
+            if (timerRunning) {
+                timerRunning = false;
+                clearInterval(intervalId);
+            }
         }
 
         // Add event listener for mouse click
@@ -358,21 +450,17 @@
             }
         };
 
-        document.addEventListener('DOMContentLoaded', (event) => {
-            const menu = document.getElementById('menu');
-            
-            menu.addEventListener('click', () => {
-                togglePointerLock();
-                isPointerLocked = !isPointerLocked;
-            });
-        });
-
-        // Variável para rastrear o estado de bloqueio do mouse
         let isPointerLocked = false;
 
         // pausa
         document.addEventListener('keydown', function (event) {
             if (event.key === 'c' || event.key === 'C') {
+                if(timerRunning){
+                    stopTimer();
+                }
+                else{
+                    startTimer();
+                }
                 togglePointerLock();
                 isPointerLocked = !isPointerLocked;
             }
@@ -439,7 +527,7 @@
             if (moveRight) camera.translateX(person.movementSpeed * delta);
 
             camera.position.y = cameraHeight;
-            detectCollisions();
+           // detectCollisions();
             renderer.render( scene, camera );
         }
         
@@ -451,24 +539,15 @@
             if (keyboard.pressed("shift+w")) person.movementSpeed = 9;
             if (keyboard.pressed("v")) cameraHeight = 1;
             if (keyboard.pressed("r")){
+                document.getElementById('municao').style.display = "none";
                 document.getElementById('recarga').textContent = "Recarregando...";
                 setTimeout(() => {
-                    municao = 15;
+                    municao = 25;
                     document.getElementById('recarga').textContent = municao;
+                    document.getElementById('municao').style.display = "block";
                 }, 1500);}; 
             if (keyboard.pressed("t")) geraInimigos(7);
             
-            /*
-            if (keyboard.pressed("space")){
-                if (cameraHeight <= 3) { 
-                    cameraHeight += 2; 
-                } else {
-                    if (cameraHeight > 1.7) {
-                        cameraHeight = 1.7; 
-                    }
-                }
-            }
-            */
         }
 
         function handleKeyup(event) {
@@ -478,16 +557,13 @@
             if (!keyboard.pressed("d")) moveRight = false;
             if (!keyboard.pressed("shift+w")) person.movementSpeed = 5;
             if (!keyboard.pressed("v")) cameraHeight = 1.7;
-            if(!KeyboardState.pressed("r")) 
+            if(!keyboard.pressed("r")){ 
                 document.getElementById('recarga').textContent = municao;
         }
-
-        // Adiciona event listeners para o teclado
+    }
         document.addEventListener('keydown', handleKeydown);
         document.addEventListener('keyup', handleKeyup);
         animate();
-
-
 
     </script>
 
