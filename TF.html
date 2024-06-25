@@ -146,6 +146,7 @@
         import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         
         const renderer = new THREE.WebGLRenderer();
@@ -205,23 +206,22 @@
         let model;
 
         const loader = new OBJLoader();
-            loader.load(
-                'ump47.obj',
-                (object) => {
-                    scene.add(object);
-                    object.position.set(1, -1, -2);
-                    object.rotation.y = 1.5;
-                    object.scale.set(0.25, 0.25, 0.25); 
-                    model = object;
-                    camera.add(object);
-                },
-                (xhr) => {
-                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-                },
-                (error) => {
-                    console.error('An error occurred:', error);
-                }
-            );
+        const mtlLoader = new MTLLoader();
+
+        mtlLoader.load('ump47.mtl', (materials) => {
+            materials.preload();
+
+            const objLoader = new OBJLoader();
+            objLoader.setMaterials(materials);
+            objLoader.load('ump47.obj', (object) => {
+                object.scale.set(0.25, 0.25, 0.25); 
+                scene.add(object);
+                object.position.set(1, -1, -2);
+                object.rotation.y = 1.5;
+                model = object;
+                camera.add(object);
+            });
+        });
 
         // Luz ambiente
         const ambientLight = new THREE.AmbientLight(0x404040, 20);
@@ -237,57 +237,69 @@
         const mira = document.getElementById("mira");
 
         class Personagem {
-            constructor(geometry, material, vidaInicial){
-                this.mesh = new THREE.Mesh(geometry, material);
+            constructor(vidaInicial, x, y, z) {
+                this.mesh = null; 
                 this.vida = vidaInicial;
-                scene.add(this.mesh);
+                this.carregarModelo(x, y, z); 
             }
 
-            tomaDano(qtdDano){
+            carregarModelo(x, y, z) {
+                const mtlLoader = new MTLLoader();
+                mtlLoader.load('WoodenLarry.mtl', (materials) => {
+                    materials.preload();
+                    const objLoader = new OBJLoader();
+                    objLoader.setMaterials(materials);
+                    objLoader.load('WoodenLarry.obj', (object) => {
+                        object.scale.set(0.6, 0.6, 0.6); 
+                        object.traverse((child) => {
+                            if (child instanceof THREE.Mesh) {
+                                child.material = materials; 
+                            }
+                        });
+                        this.mesh = object;
+                        this.mesh.position.set(x, y, z); 
+                        scene.add(this.mesh); 
+                        inimigos.push(this); 
+                    });
+                });
+            }
+
+            tomaDano(qtdDano) {
                 this.vida -= qtdDano;
-                mira.style.width = "2px";
-                if (this.vida <= 0){
+                if (this.vida <= 0) {
                     this.morre();
-                    return 1;
-                }
-                else{
-                    return 0;
+                    return 1; 
+                } else {
+                    return 0; 
                 }
             }
 
             morre() {
-                scene.remove(this.mesh);
-                pontuacao += 15;
-                pontos.textContent = pontuacao;
-                count++;
-                criaKillLog(count);
-                const kill_log = document.getElementById('killLog' + count);
-                const tempo = 2000;
-                setKillLog(kill_log, tempo);
+                if (this.mesh) {
+                    scene.remove(this.mesh);
+                    pontuacao += 15;
+                    pontos.textContent = pontuacao;
+                    count++;
+                    criaKillLog(count);
+                    const kill_log = document.getElementById('killLog' + count);
+                    const tempo = 2000;
+                    setKillLog(kill_log, tempo);
+                }
             }
-        }
+}
 
         let inimigos = [];
 
         function criaInimigo(x, y, z) {
-
-            const geometry = new THREE.BoxGeometry(1, 1.5, 1);
-            const material = new THREE.MeshNormalMaterial();
-
-            const inimigo = new Personagem(geometry, material, 100);
-
-            inimigo.mesh.position.set(x, y, z);
-
-            inimigos.push(inimigo);
+            const inimigo = new Personagem(100, x, y, z);
         }
 
         function geraInimigos(numInimigos) {
-
             for (let i = 0; i < numInimigos; i++) {
-                const dists = [-12, -18, -24]
-                const dist_sel = Math.floor(Math.random() * 3); 
-                const x = Math.random() * 10 - 5;
-                const y = 1.5; 
+                const dists = [-12, -18, -24];
+                const dist_sel = Math.floor(Math.random() * 3);
+                const x = Math.random() * 15 - 5;
+                const y = 0;
                 const z = dists[dist_sel];
 
                 criaInimigo(x, y, z);
@@ -306,34 +318,34 @@
             }, 20); 
         }
 
-        
         function atira() {
-            if(municao >= 1 && isPointerLocked == true){
+            if (municao >= 1 && isPointerLocked == true) {
                 municao -= 1;
                 document.getElementById('recarga').textContent = municao;
 
                 const mouse = new THREE.Vector2(0, 0);
-    
+
                 raycaster.setFromCamera(mouse, camera);
-                
-                // Calculate the object intersecting the picking ray
-                const intersection = raycaster.intersectObject(scene, true)[0]; // Retorna a primeira interseção encontrada
-    
+
+                const intersection = raycaster.intersectObject(scene, true)[0]; 
+
                 if (intersection) {
                     const object = intersection.object;
-    
-                    const personagem = inimigos.find(inimigo => inimigo.mesh === object);
+                    const personagem = inimigos.find(inimigo => {
+                        return inimigo.mesh === object || inimigo.mesh.children.includes(object);
+                    });
+
                     if (personagem) {
                         let morreu = personagem.tomaDano(25);
                         showCrosshair();
-                        if(morreu === 1){
-                            const index = inimigos.findIndex(inimigo => inimigo.mesh === object);
+                        if (morreu === 1) {
+                            const index = inimigos.findIndex(inimigo => inimigo.mesh === personagem.mesh);
 
                             if (index !== -1) {
                                 inimigos.splice(index, 1);
                             }
 
-                            if(inimigos.length === 0 && cronometro > 0) geraInimigos(7);
+                            if (inimigos.length === 0 && cronometro > 0) geraInimigos(12);
                         }
                     }
                 }
@@ -346,7 +358,7 @@
         document.addEventListener('mouseup', onMouseUp, false);
         
         let municao = 25;
-        let cronometro = 60;
+        let cronometro = 30;
         let pontuacao = 0;
         document.getElementById('recarga').textContent = municao;
         let pontos = document.getElementById('pontos');
@@ -365,7 +377,7 @@
         }
 
         function startShooting() {
-            if (shootingInterval) return; // Evita múltiplos intervalos
+            if (shootingInterval) return; 
 
             shootingInterval = setInterval(() => {
                 if (isShooting) {
@@ -433,7 +445,6 @@
             }
         }
 
-        // Add event listener for mouse click
         window.addEventListener('click', atira, false);
         
         const fpcam = new PointerLockControls( camera, renderer.domElement );
@@ -452,7 +463,6 @@
 
         let isPointerLocked = false;
 
-        // pausa
         document.addEventListener('keydown', function (event) {
             if (event.key === 'c' || event.key === 'C') {
                 if(timerRunning){
@@ -466,9 +476,6 @@
             }
         }, false);
 
-        //Controles 
-
-        // Raycaster
         const raycaster = new THREE.Raycaster();
         const direction = new THREE.Vector3();
         let collisionDistance = 1;
@@ -485,8 +492,6 @@
 
             const intersects = raycaster.intersectObjects(scene.children, true);
             if (intersects.length > 0 && intersects[0].distance < 1) {
-                // Se a câmera está muito perto do objeto, impede o movimento para frente
-                // Move a câmera para trás
                 camera.position.addScaledVector(direction, -0.1);
             }
         }
@@ -508,7 +513,7 @@
         chao.rotation.x = -Math.PI/2;
         scene.add( chao );
 
-        geraInimigos(7);
+        geraInimigos(12);
 
         let moveForward = false;
         let moveBackward = false;
@@ -527,7 +532,6 @@
             if (moveRight) camera.translateX(person.movementSpeed * delta);
 
             camera.position.y = cameraHeight;
-           // detectCollisions();
             renderer.render( scene, camera );
         }
         
@@ -546,7 +550,7 @@
                     document.getElementById('recarga').textContent = municao;
                     document.getElementById('municao').style.display = "block";
                 }, 1500);}; 
-            if (keyboard.pressed("t")) geraInimigos(7);
+            if (keyboard.pressed("t")) geraInimigos(12);
             
         }
 
