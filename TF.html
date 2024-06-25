@@ -240,6 +240,10 @@
                 mira.style.width = "2px";
                 if (this.vida <= 0){
                     this.morre();
+                    return 1;
+                }
+                else{
+                    return 0;
                 }
             }
 
@@ -272,7 +276,6 @@
         function geraInimigos(numInimigos) {
 
             for (let i = 0; i < numInimigos; i++) {
-                // Gere posições aleatórias para os inimigos
                 const dists = [-12, -18, -24]
                 const dist_sel = Math.floor(Math.random() * 3); 
                 const x = Math.random() * 10 - 5;
@@ -290,9 +293,9 @@
                 crosshair.style.opacity = 0;
                 setTimeout(() => {
                     crosshair.style.display = 'none';
-                    crosshair.style.transition = ''; // Reset transition for next use
+                    crosshair.style.transition = ''; 
                 }, 20);
-            }, 20); // Duration the "X" stays visible
+            }, 20); 
         }
 
         
@@ -314,9 +317,17 @@
     
                     const personagem = inimigos.find(inimigo => inimigo.mesh === object);
                     if (personagem) {
-                        personagem.tomaDano(25);
-                        console.log(municao);
+                        let morreu = personagem.tomaDano(25);
                         showCrosshair();
+                        if(morreu === 1){
+                            const index = inimigos.findIndex(inimigo => inimigo.mesh === object);
+
+                            if (index !== -1) {
+                                inimigos.splice(index, 1);
+                            }
+
+                            if(inimigos.length === 0) geraInimigos(7);
+                        }
                     }
                 }
             }
@@ -327,7 +338,7 @@
         document.addEventListener('mousedown', onMouseDown, false);
         document.addEventListener('mouseup', onMouseUp, false);
         
-        let municao = 15;
+        let municao = 25;
         let cronometro = 60;
         let pontuacao = 0;
         document.getElementById('recarga').textContent = municao;
@@ -368,7 +379,7 @@
             // Adicione conteúdo ou estilos à nova div, se necessário
             kill_log.id = 'killLog' + count;
             kill_log.display = 'block';
-            kill_log.textContent = 'Você abateu o bot ' + count + "!";
+            kill_log.textContent = 'Você abateu o bot Nº ' + count + "!";
             kill_log.style.backgroundColor = 'lightblue';
             kill_log.style.padding = '10px';
             kill_log.style.marginTop = '10px';
@@ -523,23 +534,12 @@
                 document.getElementById('municao').style.display = "none";
                 document.getElementById('recarga').textContent = "Recarregando...";
                 setTimeout(() => {
-                    municao = 15;
+                    municao = 25;
                     document.getElementById('recarga').textContent = municao;
                     document.getElementById('municao').style.display = "block";
                 }, 1500);}; 
             if (keyboard.pressed("t")) geraInimigos(7);
             
-            /*
-            if (keyboard.pressed("space")){
-                if (cameraHeight <= 3) { 
-                    cameraHeight += 2; 
-                } else {
-                    if (cameraHeight > 1.7) {
-                        cameraHeight = 1.7; 
-                    }
-                }
-            }
-            */
         }
 
         function handleKeyup(event) {
@@ -553,12 +553,9 @@
                 document.getElementById('recarga').textContent = municao;
         }
     }
-        // Adiciona event listeners para o teclado
         document.addEventListener('keydown', handleKeydown);
         document.addEventListener('keyup', handleKeyup);
         animate();
-
-
 
     </script>
 
